@@ -13,10 +13,12 @@ html {
 }
 
 html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
 }
 
 body {
-  margin-bottom: 60px;
+    margin-bottom: 60px;
+   // background-image: linear-gradient(to bottom, #05052d, #25204f, #4a3673, #734d97, #a165ba, #a165ba, #a165ba, #a165ba, #734d97, #4a3673, #25204f, #05052d);
 }
+
