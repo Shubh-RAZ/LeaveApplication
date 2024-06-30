@@ -6,23 +6,25 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using LeaveApplication.Data;
+using LeaveApplication.Models.LeaveTypes;
+using AutoMapper;
+using LeaveApplication.Services;
+using AspNetCore;
 
 namespace LeaveApplication.Controllers
 {
-    public class LeaveTypesController : Controller
+    public class LeaveTypesController(ILeaveTypeServices _leaveTypeServices) : Controller
     {
-        private readonly ApplicationDbContext _context;
+   
+        private static string NameExistValidationMessage = "This leaveType already exist in database";
 
-        public LeaveTypesController(ApplicationDbContext context)
-        {
-            _context = context;
-        }
+
 
         // GET: LeaveTypes
         public async Task<IActionResult> Index()
         {
-            var data = await _context.LeaveTypes.ToListAsync();
-            return View(data);
+            var viewData = _leaveTypeServices.getAllLeaveTypes();
+            return View(viewData);
         }
 
         // GET: LeaveTypes/Details/5
@@ -33,12 +35,12 @@ namespace LeaveApplication.Controllers
                 return NotFound();
             }
 
-            var leaveType = await _context.LeaveTypes
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var leaveType = await _leaveTypeServices.getLeaveType<LeaveTypeReadOnlyVM>(id.Value);
             if (leaveType == null)
             {
                 return NotFound();
             }
+
 
             return View(leaveType);
         }
@@ -54,17 +56,27 @@ namespace LeaveApplication.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,NoOfDays")] LeaveType leaveType)
+        public async Task<IActionResult> Create (LeaveTypeCreateOnlyVM leaveTypeCrete)
         {
+
+            if (leaveTypeCrete.Name.Contains("vacation")){
+                ModelState.AddModelError(nameof(leaveTypeCrete.Name), "Name should not contain vacation");
+            }
+
+            if (await _leaveTypeServices.checkIfLeaveTypeNameExists(leaveTypeCrete.Name))
+            {
+                ModelState.AddModelError(nameof(leaveTypeCrete.Name), " This Leave Type already exist in the database");
+            }
+
             if (ModelState.IsValid)
             {
-                _context.Add(leaveType);
-                await _context.SaveChangesAsync();
+                var leaveType = _leaveTypeServices.createLeaveType(leaveTypeCrete);
                 return RedirectToAction(nameof(Index));
             }
-            return View(leaveType);
+            return View(leaveTypeCrete);
         }
 
+     
         // GET: LeaveTypes/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
@@ -73,11 +85,13 @@ namespace LeaveApplication.Controllers
                 return NotFound();
             }
 
-            var leaveType = await _context.LeaveTypes.FindAsync(id);
+            var leaveType = await _leaveTypeServices.getLeaveType<LeaveTypeEditVM>(id.Value);
             if (leaveType == null)
             {
                 return NotFound();
             }
+
+         
             return View(leaveType);
         }
 
@@ -86,23 +100,29 @@ namespace LeaveApplication.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,NoOfDays")] LeaveType leaveType)
+        public async Task<IActionResult> Edit(int id, LeaveTypeEditVM leaveTypeEdit)
         {
-            if (id != leaveType.Id)
+            if (id != leaveTypeEdit.Id)
             {
                 return NotFound();
+            }
+
+            if (await _leaveTypeServices.checkIfLeaveTypeNameExistsForEdit(leaveTypeEdit))
+            {
+                ModelState.AddModelError(nameof(leaveTypeEdit.Name), NameExistValidationMessage);
             }
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(leaveType);
-                    await _context.SaveChangesAsync();
+                    var leaveType = _leaveTypeServices.editLeaveType(leaveTypeEdit);
+
+
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!LeaveTypeExists(leaveType.Id))
+                    if (!_leaveTypeServices.LeaveTypeExists(leaveTypeEdit.Id))
                     {
                         return NotFound();
                     }
@@ -113,8 +133,10 @@ namespace LeaveApplication.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            return View(leaveType);
+            return View(leaveTypeEdit);
         }
+
+       
 
         // GET: LeaveTypes/Delete/5
         public async Task<IActionResult> Delete(int? id)
@@ -124,8 +146,7 @@ namespace LeaveApplication.Controllers
                 return NotFound();
             }
 
-            var leaveType = await _context.LeaveTypes
-                .FirstOrDefaultAsync(m => m.Id == id);
+            var leaveType = await _leaveTypeServices.getLeaveType<LeaveTypeReadOnlyVM>(id.Value);
             if (leaveType == null)
             {
                 return NotFound();
@@ -139,19 +160,11 @@ namespace LeaveApplication.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var leaveType = await _context.LeaveTypes.FindAsync(id);
-            if (leaveType != null)
-            {
-                _context.LeaveTypes.Remove(leaveType);
-            }
-
-            await _context.SaveChangesAsync();
+           
+            await _leaveTypeServices.deleteLeaveType(id);
             return RedirectToAction(nameof(Index));
         }
 
-        private bool LeaveTypeExists(int id)
-        {
-            return _context.LeaveTypes.Any(e => e.Id == id);
-        }
+
     }
 }
